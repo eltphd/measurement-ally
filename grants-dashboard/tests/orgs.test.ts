@@ -6,7 +6,12 @@ const defs = buildOrgDefs(fixtureSnapshot().orgFacts);
 
 describe("dynamic org definitions from the Org Facts Registry", () => {
   it("builds one def per registry row", () => {
-    expect(defs.map((d) => d.key).sort()).toEqual(["arkbuilders", "namifc", "ussq"]);
+    expect(defs.map((d) => d.key).sort()).toEqual(["arkbuilders", "namifc", "rawsunart", "ussq"]);
+  });
+
+  it("new clients resolve from their registry row alone", () => {
+    expect(resolveScope("lacey@rawsunart.com", defs)).toBe("rawsunart");
+    expect(inferOrg("lacey@rawsunart.com", "", defs)).toBe("rawsunart");
   });
 
   it("admins see everything", () => {
