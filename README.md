@@ -1,5 +1,9 @@
 # Measurement Ally - LTA Research Infrastructure
 
+> **📊 Grants Operations Dashboard** — the client-facing grant status
+> dashboard (Notion-backed, org-scoped, magic-link auth) lives in
+> [`grants-dashboard/`](grants-dashboard/README.md).
+
 **Community-owned longitudinal data platform** providing real-time trajectory insights to survey participants.
 
 [![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://www.python.org/)
