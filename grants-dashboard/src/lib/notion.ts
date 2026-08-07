@@ -1,5 +1,6 @@
 import "server-only";
-import { DATA_SOURCES, ORGS, ORG_KEYS, type OrgKey } from "./config";
+import { DATA_SOURCES } from "./config";
+import { buildOrgDefs, inferOrg, orgKeyForFacts } from "./orgs";
 import type { DocRow, FieldLogRow, Grant, LangBlock, OrgFacts, Snapshot } from "./types";
 
 const API = "https://api.notion.com/v1";
@@ -58,20 +59,9 @@ export function normId(id: string): string {
   return id.replace(/-/g, "").toLowerCase();
 }
 
-// ── Org inference ────────────────────────────────────────────────────────
-
-export function inferOrgFromGrant(granteeEmail: string, granteeOrg: string): OrgKey | null {
-  const em = granteeEmail.trim().toLowerCase();
-  for (const key of ORG_KEYS) {
-    if (ORGS[key].emailDomains.some((d) => em.endsWith(`@${d}`))) return key;
-  }
-  for (const key of ORG_KEYS) {
-    if (ORGS[key].namePattern.test(granteeOrg)) return key;
-  }
-  return null;
-}
-
 // ── Normalizers ──────────────────────────────────────────────────────────
+// Org assignment happens in a post-pass in fetchSnapshotFromNotion, once the
+// org definitions (from the Org Facts Registry) are known.
 
 function toGrant(page: NotionPage): Grant {
   const p = page.properties;
@@ -80,7 +70,7 @@ function toGrant(page: NotionPage): Grant {
   return {
     id: normId(page.id),
     notionUrl: page.url,
-    org: inferOrgFromGrant(granteeEmail, granteeOrg),
+    org: null,
     granteeOrg,
     funder: text(p["Grantor/Funder"]),
     scope: text(p["Scope/Focus Area"]),
@@ -106,7 +96,11 @@ function toOrgFacts(page: NotionPage): OrgFacts {
   const edEmail = email(p["ED Email"]);
   return {
     id: normId(page.id),
-    org: inferOrgFromGrant(edEmail, orgName),
+    org: null,
+    orgKey: text(p["Org Key"]),
+    emailDomains: text(p["Email Domains"]),
+    viewerEmails: text(p["Viewer Emails"]),
+    nameMatch: text(p["Name Match"]),
     orgName,
     legalName: text(p["Legal Name"]),
     ein: text(p["EIN"]),
@@ -134,7 +128,7 @@ function toOrgFacts(page: NotionPage): OrgFacts {
   };
 }
 
-function toDoc(page: NotionPage, orgByPageId: Map<string, OrgKey | null>): DocRow {
+function toDoc(page: NotionPage, orgByPageId: Map<string, string | null>): DocRow {
   const p = page.properties;
   const orgPageIds = relationIds(p["Org"]);
   const org = orgPageIds.map((id) => orgByPageId.get(id) ?? null).find((o) => o !== null) ?? null;
@@ -154,7 +148,7 @@ function toDoc(page: NotionPage, orgByPageId: Map<string, OrgKey | null>): DocRo
   };
 }
 
-function toBlock(page: NotionPage, orgByPageId: Map<string, OrgKey | null>): LangBlock {
+function toBlock(page: NotionPage, orgByPageId: Map<string, string | null>): LangBlock {
   const p = page.properties;
   const orgIds = relationIds(p["Org"]);
   const org = orgIds.map((id) => orgByPageId.get(id) ?? null).find((o) => o !== null) ?? null;
@@ -196,10 +190,15 @@ export async function fetchSnapshotFromNotion(): Promise<Snapshot> {
   ]);
 
   const orgFacts = factsPages.map(toOrgFacts);
+  const defs = buildOrgDefs(orgFacts);
+  for (const f of orgFacts) f.org = orgKeyForFacts(f) || null;
   const orgByPageId = new Map(orgFacts.map((f) => [f.id, f.org]));
 
+  const grants = trackerPages.map(toGrant);
+  for (const g of grants) g.org = inferOrg(g.granteeEmail, g.granteeOrg, defs);
+
   return {
-    grants: trackerPages.map(toGrant),
+    grants,
     orgFacts,
     docs: docPages.map((d) => toDoc(d, orgByPageId)),
     blocks: blockPages.map((b) => toBlock(b, orgByPageId)),

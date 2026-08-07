@@ -52,9 +52,8 @@ export async function verifySessionToken(token: string): Promise<SessionPayload 
     const { payload } = await jwtVerify(token, secret());
     if (payload.purpose !== "session") return null;
     const { email, scope } = payload as Record<string, unknown>;
-    if (typeof email !== "string" || typeof scope !== "string") return null;
-    if (scope !== "all" && scope !== "namifc" && scope !== "arkbuilders") return null;
-    return { email, scope: scope as Scope };
+    if (typeof email !== "string" || typeof scope !== "string" || !scope) return null;
+    return { email, scope };
   } catch {
     return null;
   }

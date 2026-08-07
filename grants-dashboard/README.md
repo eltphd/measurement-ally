@@ -1,10 +1,10 @@
 # Grants Operations Dashboard
 
-Read-only web dashboard that lets Measurement Ally's nonprofit clients —
-NAMI Franklin County (Rachelle Martin) and ArkBuilders (George Hicks) — see
-the live status of every grant Measurement Ally runs for them. Erica
-maintains everything in Notion; the dashboard reads Notion. **No double
-entry, ever.**
+Read-only web dashboard that lets each of Measurement Ally's nonprofit
+clients — NAMI Franklin County, ArkBuilders, US-Squared, and any org added
+later — see the live status of every grant Measurement Ally runs for them.
+Erica maintains everything in Notion; the dashboard reads Notion. **No
+double entry, ever.**
 
 ## What it does
 
@@ -38,21 +38,39 @@ entry, ever.**
 | Standard Language Library | `d235f20c-26e1-4703-8de3-d49d4c58d7df` |
 | Application Field Log | `a7dad9d8-c215-4cd6-b902-7af8742615fd` |
 
-Grants are mapped to a client org by **Grantee Email domain** first
-(`@namifc.org` → NAMI FC, `@arkbuilders.org` → ArkBuilders), then by name
-match on the Grantee Organization title. Grants that match neither (OneOhio
-prospect pipeline for other orgs, Measurement Ally's own applications) are
-visible only to Erica.
+## Clients are rows, not code
+
+The **Org Facts Registry is the client control panel**. Each row defines an
+org via four columns:
+
+| Column | Meaning | Example |
+| :-- | :-- | :-- |
+| `Org Key` | Short slug identifying the org | `namifc` |
+| `Email Domains` | Grants whose Grantee Email ends in one of these belong to this org | `namifc.org` |
+| `Viewer Emails` | Who may sign in — they see **only** this org | `rachelle@namifc.org` |
+| `Name Match` | Fallback words matched against Grantee Organization titles | `nami` |
+
+**To onboard a new client:** add a row with those four columns filled in
+(plus their org facts), wait up to 5 minutes or hit Refresh, and send them
+the dashboard link. That's the whole procedure. To revoke someone, remove
+their email from Viewer Emails — new sign-ins stop immediately (existing
+sessions age out within 30 days; rotate `SESSION_SECRET` in Vercel to cut
+them off instantly).
+
+Grants are mapped to a client org by **Grantee Email domain** first, then
+by Name Match on the Grantee Organization title. Grants that match no org
+(Measurement Ally's own applications, prospect pipeline for not-yet-onboarded
+orgs) are visible only to Erica.
 
 ## Access
 
-Magic-link email sign-in, no passwords. Sessions last 30 days. The
-allowlist lives in `src/lib/config.ts` (extend via `ALLOWLIST_JSON` env var
-without a code change):
+Magic-link email sign-in, no passwords. Sessions last 30 days.
 
-- `erica@measurementally.com`, `ericatartt@gmail.com`, `mstartt@gmail.com` → everything
-- `rachelle@namifc.org`, `laurita.barber@namifc.org` → NAMI FC only
-- `george@arkbuilders.org` → ArkBuilders only
+- Admins (see everything): `erica@measurementally.com`,
+  `ericatartt@gmail.com`, `mstartt@gmail.com`, plus anything in the
+  `ADMIN_EMAILS` env var
+- Clients: whoever is listed in a registry row's **Viewer Emails**
+- `ALLOWLIST_JSON` env var exists as an emergency per-email override
 
 **Org scoping is enforced by construction**: data is filtered server-side
 by the session's org before any page renders; a client session pointed at

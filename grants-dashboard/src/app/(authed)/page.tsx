@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { ORGS, type OrgKey } from "@/lib/config";
-import { getScopedData } from "@/lib/data";
+import { getAllOrgDefs, getScopedData } from "@/lib/data";
 import { daysLabel, daysUntil, deadlineTone, fmtDate, fmtMoney, todayET } from "@/lib/dates";
 import { bucketize, cleanStage, deadlineRail, nextActionDate, sortGrants } from "@/lib/derive";
 import { docHealth } from "@/lib/freshness";
@@ -18,13 +17,19 @@ export default async function Dashboard({
   const { org: orgParam } = await searchParams;
   const scope = effectiveScope(session, orgParam);
   const data = await getScopedData(scope);
+  // Admin-only: the full org list for the switcher tabs and badges.
+  const allDefs = session.scope === "all" ? await getAllOrgDefs() : [];
+  const orgName = (key: string | null) =>
+    allDefs.find((d) => d.key === key)?.name ?? key ?? "";
   const today = todayET();
 
   const grants = sortGrants(data.grants, today);
   const rail = deadlineRail(data.grants, today);
   const buckets = bucketize(data.grants);
   const heading =
-    scope === "all" ? "All client portfolios" : ORGS[scope].name;
+    scope === "all"
+      ? "All client portfolios"
+      : data.orgDefs.find((d) => d.key === scope)?.name ?? orgName(scope) ?? scope;
 
   return (
     <main className="wrap">
@@ -44,9 +49,9 @@ export default async function Dashboard({
       {session.scope === "all" && (
         <nav className="tabs" aria-label="Organization filter">
           <Link href="/" className={scope === "all" ? "active" : ""}>All</Link>
-          {(Object.keys(ORGS) as OrgKey[]).map((k) => (
-            <Link key={k} href={`/?org=${k}`} className={scope === k ? "active" : ""}>
-              {ORGS[k].name}
+          {allDefs.map((d) => (
+            <Link key={d.key} href={`/?org=${d.key}`} className={scope === d.key ? "active" : ""}>
+              {d.name}
             </Link>
           ))}
         </nav>
@@ -107,7 +112,10 @@ export default async function Dashboard({
                 </Link>
                 <span className="badge">{cleanStage(g.stage) || "No stage"}</span>
                 {scope === "all" && g.org && (
-                  <span className="badge">{ORGS[g.org].name}</span>
+                  <span className="badge">{orgName(g.org)}</span>
+                )}
+                {scope === "all" && !g.org && (
+                  <span className="badge">Internal / unassigned</span>
                 )}
               </div>
               <div className="meta" style={{ marginTop: 4 }}>
@@ -155,7 +163,7 @@ export default async function Dashboard({
                       )}{" "}
                       <span className="meta">· {d.type}</span>
                       {scope === "all" && d.org && (
-                        <span className="meta"> · {ORGS[d.org].name}</span>
+                        <span className="meta"> · {orgName(d.org)}</span>
                       )}
                     </div>
                     <div className="doc-reason">{h.reason}</div>

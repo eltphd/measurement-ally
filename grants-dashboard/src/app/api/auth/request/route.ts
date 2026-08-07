@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { appUrl, isDemoMode, scopeForEmail } from "@/lib/config";
+import { appUrl, isDemoMode } from "@/lib/config";
+import { getAllOrgDefs } from "@/lib/data";
+import { resolveScope } from "@/lib/orgs";
 import { createMagicToken, MAGIC_LINK_MINUTES } from "@/lib/session";
 
 // Basic per-email throttle so the endpoint can't be used to spam inboxes.
@@ -19,7 +21,8 @@ export async function POST(req: NextRequest) {
   }
 
   // Always report success so the form can't be used to probe the allowlist.
-  const scope = scopeForEmail(email);
+  // Access = admin list + Viewer Emails in the Notion Org Facts Registry.
+  const scope = resolveScope(email, await getAllOrgDefs());
   if (!scope) return NextResponse.json({ ok: true });
 
   const now = Date.now();

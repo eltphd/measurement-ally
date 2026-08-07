@@ -1,10 +1,9 @@
-import type { OrgKey } from "./config";
-
 export interface Grant {
   /** Notion page id, lowercase, no dashes. */
   id: string;
   notionUrl: string;
-  org: OrgKey | null;
+  /** Client org key (from the Org Facts Registry), or null = admin-only. */
+  org: string | null;
   granteeOrg: string;
   funder: string;
   scope: string;
@@ -25,7 +24,12 @@ export interface Grant {
 
 export interface OrgFacts {
   id: string;
-  org: OrgKey | null;
+  org: string | null;
+  /** Raw registry columns that define the org for the dashboard. */
+  orgKey: string;
+  emailDomains: string;
+  viewerEmails: string;
+  nameMatch: string;
   orgName: string;
   legalName: string;
   ein: string;
@@ -54,7 +58,7 @@ export interface OrgFacts {
 
 export interface DocRow {
   id: string;
-  org: OrgKey | null;
+  org: string | null;
   /** Org Facts page ids this doc relates to (no-dash). */
   orgPageIds: string[];
   name: string;
@@ -70,7 +74,7 @@ export interface DocRow {
 
 export interface LangBlock {
   id: string;
-  org: OrgKey | null;
+  org: string | null;
   name: string;
   category: string;
   text: string;

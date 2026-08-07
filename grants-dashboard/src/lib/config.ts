@@ -1,61 +1,47 @@
-export const ORG_KEYS = ["namifc", "arkbuilders"] as const;
-export type OrgKey = (typeof ORG_KEYS)[number];
-/** "all" = Erica. Clients are always pinned to exactly one org. */
-export type Scope = OrgKey | "all";
+/**
+ * A viewer's scope: a client org key (e.g. "namifc"), or "all" for Erica.
+ * Client orgs are defined in the Notion Org Facts Registry — one row per
+ * client, with Org Key / Email Domains / Viewer Emails / Name Match columns —
+ * so adding a client never requires a code change. See src/lib/orgs.ts.
+ */
+export type Scope = string;
 
-export interface OrgDef {
-  key: OrgKey;
-  name: string;
-  /** Grants whose Grantee Email ends in one of these domains belong to this org. */
-  emailDomains: string[];
-  /** Fallback: match on the Grantee Organization title. */
-  namePattern: RegExp;
+const DEFAULT_ADMINS = [
+  "erica@measurementally.com",
+  "ericatartt@gmail.com",
+  "mstartt@gmail.com",
+];
+
+/** Admins see every org. Extend with ADMIN_EMAILS (comma-separated). */
+export function adminEmails(): string[] {
+  const extra = (process.env.ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  return [...new Set([...DEFAULT_ADMINS, ...extra])];
 }
 
-export const ORGS: Record<OrgKey, OrgDef> = {
-  namifc: {
-    key: "namifc",
-    name: "NAMI Franklin County",
-    emailDomains: ["namifc.org"],
-    namePattern: /\bnami\b/i,
-  },
-  arkbuilders: {
-    key: "arkbuilders",
-    name: "ArkBuilders",
-    emailDomains: ["arkbuilders.org"],
-    namePattern: /ark\s*builders/i,
-  },
-};
-
-const DEFAULT_ALLOWLIST: Record<string, Scope> = {
-  "erica@measurementally.com": "all",
-  "ericatartt@gmail.com": "all",
-  "mstartt@gmail.com": "all",
-  "rachelle@namifc.org": "namifc",
-  "laurita.barber@namifc.org": "namifc",
-  "george@arkbuilders.org": "arkbuilders",
-};
-
-export function allowlist(): Record<string, Scope> {
-  const extra = process.env.ALLOWLIST_JSON;
-  if (!extra) return DEFAULT_ALLOWLIST;
+/**
+ * Optional emergency override, e.g. {"person@x.org":"namifc"} — takes
+ * precedence over the registry's Viewer Emails. Normally leave unset and
+ * manage viewers in Notion.
+ */
+export function allowlistOverrides(): Record<string, Scope> {
+  const raw = process.env.ALLOWLIST_JSON;
+  if (!raw) return {};
   try {
-    const parsed = JSON.parse(extra) as Record<string, Scope>;
+    const parsed = JSON.parse(raw) as Record<string, string>;
     const cleaned: Record<string, Scope> = {};
     for (const [email, scope] of Object.entries(parsed)) {
-      if (scope === "all" || ORG_KEYS.includes(scope as OrgKey)) {
-        cleaned[email.trim().toLowerCase()] = scope;
+      if (typeof scope === "string" && scope.trim()) {
+        cleaned[email.trim().toLowerCase()] = scope.trim().toLowerCase();
       }
     }
-    return { ...DEFAULT_ALLOWLIST, ...cleaned };
+    return cleaned;
   } catch {
-    console.error("ALLOWLIST_JSON is not valid JSON — using built-in allowlist only");
-    return DEFAULT_ALLOWLIST;
+    console.error("ALLOWLIST_JSON is not valid JSON — ignoring it");
+    return {};
   }
-}
-
-export function scopeForEmail(email: string): Scope | null {
-  return allowlist()[email.trim().toLowerCase()] ?? null;
 }
 
 export const DATA_SOURCES = {

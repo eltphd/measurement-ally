@@ -1,7 +1,7 @@
 import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { ORG_KEYS, type OrgKey, type Scope } from "./config";
+import type { Scope } from "./config";
 import { SESSION_COOKIE, verifySessionToken, type SessionPayload } from "./session";
 
 export async function getSession(): Promise<SessionPayload | null> {
@@ -19,10 +19,11 @@ export async function requireSession(): Promise<SessionPayload> {
 
 /**
  * Clients are pinned to their org no matter what the URL says.
- * Only an "all" (admin) session can narrow via ?org=.
+ * Only an "all" (admin) session can narrow via ?org=. An unknown key just
+ * scopes to an empty portfolio — it can never widen access.
  */
 export function effectiveScope(session: SessionPayload, orgParam?: string | null): Scope {
   if (session.scope !== "all") return session.scope;
-  if (orgParam && (ORG_KEYS as readonly string[]).includes(orgParam)) return orgParam as OrgKey;
-  return "all";
+  const key = orgParam?.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+  return key ? key : "all";
 }

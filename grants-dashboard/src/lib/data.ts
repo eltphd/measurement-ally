@@ -1,8 +1,9 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
-import { isDemoMode, ORG_KEYS, type OrgKey, type Scope } from "./config";
+import { isDemoMode, type Scope } from "./config";
 import { fixtureSnapshot } from "./fixtures";
 import { fetchSnapshotFromNotion } from "./notion";
+import { buildOrgDefs, type OrgDef } from "./orgs";
 import type { Snapshot } from "./types";
 
 async function loadSnapshot(): Promise<Snapshot> {
@@ -23,14 +24,13 @@ export const getSnapshot = unstable_cache(loadSnapshot, ["notion-snapshot"], {
 
 export interface ScopedData extends Snapshot {
   scope: Scope;
-  /** Orgs this viewer may see, for labels and (admin) switching. */
-  visibleOrgs: OrgKey[];
+  /** Org definitions visible at this scope (all of them for admins). */
+  orgDefs: OrgDef[];
 }
 
 export function scopeSnapshot(snap: Snapshot, scope: Scope): ScopedData {
-  const orgs: OrgKey[] = scope === "all" ? [...ORG_KEYS] : [scope];
-  const inScope = (org: OrgKey | null) =>
-    scope === "all" ? true : org === scope;
+  const allDefs = buildOrgDefs(snap.orgFacts);
+  const inScope = (org: string | null) => (scope === "all" ? true : org === scope);
 
   const grants = snap.grants.filter((g) => inScope(g.org));
   const grantIds = new Set(grants.map((g) => g.id));
@@ -38,7 +38,7 @@ export function scopeSnapshot(snap: Snapshot, scope: Scope): ScopedData {
   return {
     ...snap,
     scope,
-    visibleOrgs: orgs,
+    orgDefs: allDefs.filter((d) => scope === "all" || d.key === scope),
     grants,
     orgFacts: snap.orgFacts.filter((f) => inScope(f.org)),
     docs: snap.docs.filter((d) => inScope(d.org)),
@@ -50,4 +50,9 @@ export function scopeSnapshot(snap: Snapshot, scope: Scope): ScopedData {
 
 export async function getScopedData(scope: Scope): Promise<ScopedData> {
   return scopeSnapshot(await getSnapshot(), scope);
+}
+
+/** Full org list — for the login allowlist and the admin org switcher only. */
+export async function getAllOrgDefs(): Promise<OrgDef[]> {
+  return buildOrgDefs((await getSnapshot()).orgFacts);
 }
