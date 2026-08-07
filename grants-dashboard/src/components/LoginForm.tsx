@@ -6,17 +6,24 @@ export function LoginForm({ demo }: { demo: boolean }) {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [demoLink, setDemoLink] = useState<string | null>(null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (busy) return;
     setBusy(true);
     try {
-      await fetch("/api/auth/request", {
+      const res = await fetch("/api/auth/request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
+      try {
+        const data = await res.json();
+        if (typeof data.link === "string") setDemoLink(data.link);
+      } catch {
+        // Non-JSON response — fall through to the generic message.
+      }
       setSent(true);
     } finally {
       setBusy(false);
@@ -24,6 +31,16 @@ export function LoginForm({ demo }: { demo: boolean }) {
   }
 
   if (sent) {
+    if (demoLink) {
+      return (
+        <div className="notice">
+          <strong>Demo mode</strong> — sample data only, so no email needed.
+          <p style={{ marginBottom: 0 }}>
+            <a className="btn" href={demoLink}>Open the dashboard →</a>
+          </p>
+        </div>
+      );
+    }
     return (
       <div className="notice">
         <strong>Check your email.</strong> If <b>{email}</b> is on the access

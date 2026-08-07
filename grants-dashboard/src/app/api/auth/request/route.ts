@@ -32,12 +32,21 @@ export async function POST(req: NextRequest) {
   lastSent.set(email, now);
 
   const token = await createMagicToken(email);
-  const link = `${appUrl()}/api/auth/verify?token=${encodeURIComponent(token)}`;
+  // Without APP_URL, build the link from the request's own origin so it
+  // works on any deployment URL out of the box.
+  const base = process.env.APP_URL ? appUrl() : req.nextUrl.origin;
+  const link = `${base}/api/auth/verify?token=${encodeURIComponent(token)}`;
 
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
     console.log(`[magic-link] Sign-in link for ${email} (valid ${MAGIC_LINK_MINUTES} min):\n${link}`);
-    return NextResponse.json({ ok: true, demo: isDemoMode() });
+    // Demo mode only (no NOTION_TOKEN, fixture data): hand the link back so
+    // the login page can offer a direct continue button. Never do this once
+    // real data is connected.
+    if (isDemoMode()) {
+      return NextResponse.json({ ok: true, demo: true, link });
+    }
+    return NextResponse.json({ ok: true });
   }
 
   const res = await fetch("https://api.resend.com/emails", {
