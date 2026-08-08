@@ -168,7 +168,7 @@ export function fixtureSnapshot(): Snapshot {
         org: "ussq",
         orgKey: "ussq",
         emailDomains: "us-squared.org",
-        viewerEmails: "",
+        viewerEmails: "executive@us-squared.org, drtarttphd@us-squared.org",
         nameMatch: "us-squared, ussq, us squared",
         orgName: "US-Squared Research Institute",
         legalName: "US-Squared Research Institute",
